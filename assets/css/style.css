@@ -1,0 +1,22 @@
+em{
+	font-style:normal;
+	font-weight:700;
+}
+
+.songlist img{
+	height:64px;
+	width:64px;
+}
+
+#trackviewer{
+	height:418px;
+	overflow-y:scroll;
+}
+
+.media{
+	height:64px;
+}
+
+#heart{
+	color:pink;
+}
