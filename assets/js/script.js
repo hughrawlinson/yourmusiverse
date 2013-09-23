@@ -4,73 +4,168 @@
 
 */
 
-var AJAX_PROTOCOL = 'http://';
-
-var MUSIXMATCH_CONFIG = {
-    host: 'api.musixmatch.com',
-    url: '/ws/1.1/',
-    apiKey: 'fe849caad54e6d25b2bb215763dedf0b'
-}
-
 'use strict';
 
-$(document).ready(function(){
-    $("#action").click(facebookLogin);
-});
+var loggedInToFacebook = function() {
+    $('#logintron').remove();
+    $('.content').show(1000);
+    populatePlays();
+};
+
 
 var facebookLogin = function() {
-    console.log('logging in to FB');
+    // ...pretty self explanatory
     FB.login(function() {
-        loggedInToFacebook();
+        console.log('logging in to FB');
     }, {
         scope: 'publish_actions,user_actions.music'
     });
 };
+
+$(document).ready(function(){
+    $('#action').click(facebookLogin);
+});
+
 var index = 0;
 var ofs = 0;
 
+// array of all played songs
 var songs = [];
+
+// playcount keypairs
 var artistPlayCount = {};
 var songPlayCount = {};
+var servicePlayCount = {};
+
+// toma.hk track
 var track = {};
 
 var playsong = function(a,s){
+    // Reconfig toma.hk track
     track = window.tomahkAPI.Track(s,a, {
         width: 300,
         height: 300,
         disabledResolvers: [
-            "SpotifyMetadata"
-            // options: "SoundCloud", "Officialfm", "Lastfm", "Jamendo", "Youtube", "Rdio", "SpotifyMetadata", "Deezer", "Exfm"
+            'SpotifyMetadata'
+            // options: 'SoundCloud', 'Officialfm', 'Lastfm', 'Jamendo', 'Youtube', 'Rdio', 'SpotifyMetadata', 'Deezer', 'Exfm'
         ],
         handlers: {
             onloaded: function() {
-                log(track.connection+":\n  api loaded");
+                console.log(track.connection+':\n  api loaded');
             },
             onended: function() {
-                log(track.connection+":\n  Song ended: "+track.artist+" - "+track.title);
+                console.log(track.connection+':\n  Song ended: '+track.artist+' - '+track.title);
             },
             onplayable: function() {
-                log(track.connection+":\n  playable");
+                console.log(track.connection+':\n  playable');
                 track.play();
             },
             onresolved: function(resolver, result) {
-                log(track.connection+":\n  Track found: "+resolver+" - "+ result.track + " by "+result.artist);
+                console.log(track.connection+':\n  Track found: '+resolver+' - '+ result.track + ' by '+result.artist);
             }
         }
     });
     $('#player').html(track.render);
-}
+};
 
+// to bind to .media elements to facilitate toma.hk player
 var mediaclick = function(){
     var artist = $(this).find('.media-heading').text();
     var song = $($(this).find('.media-body').contents()[1]).text();
     console.log(artist);
     console.log(song);
     playsong(artist,song);
+};
+
+// facilitate sorting based on musician name
+function compare(a,b) {
+    if (a.data.musician[0].name.toLowerCase() < b.data.musician[0].name.toLowerCase()){
+        return -1;
+    }
+    if (a.data.musician[0].name.toLowerCase() > b.data.musician[0].name.toLowerCase()){
+        return 1;
+    }
+    return 0;
 }
 
+var doStats = function(){
+    // sets total play count
+    $('#totalplays').text(songs.length);
+
+    // unnecessary
+    songs.sort(compare);
+
+    // reinitialises the playcount keypair objects
+    artistPlayCount = {};
+    songPlayCount = {};
+    servicePlayCount = {};
+
+    // iterates through songs populating playcount keypairs
+    for(var i = 0; i < songs.length; i++){
+        if(artistPlayCount[songs[i].data.musician[0].name]===null||artistPlayCount[songs[i].data.musician[0].name]===undefined){
+            artistPlayCount[songs[i].data.musician[0].name] = 0;
+        }
+        artistPlayCount[songs[i].data.musician[0].name]++;
+
+        if(songPlayCount[songs[i].title]===null||songPlayCount[songs[i].title]===undefined){
+            songPlayCount[songs[i].title] = 0;
+        }
+        songPlayCount[songs[i].title]++;
+
+        if(servicePlayCount[songs[i].site_name]===null||servicePlayCount[songs[i].site_name]===undefined){
+            servicePlayCount[songs[i].site_name] = 0;
+        }
+        servicePlayCount[songs[i].site_name]++;
+    }
+
+    // Artist Leaderboard
+    var artistSort = [];
+    for (var artist in artistPlayCount){
+        artistSort.push([artist, artistPlayCount[artist]]);
+    }
+    artistSort.sort(function(a, b) {return a[1] - b[1];});
+    artistSort.reverse();
+    // Set Unique Artists Count
+    $('#uniqueartists').text(artistSort.length);
+    var artistleaderboard = $('#artistrank');
+    artistleaderboard.text('');
+    for (var i = 0; i < 10 && i < artistSort.length; i++){
+        artistleaderboard.append('<li><em>'+artistSort[i][1]+'</em> '+artistSort[i][0]+'</li>');
+    }
+
+    // Top 10 Songs
+    var songSort = [];
+    for (var song in songPlayCount){
+        songSort.push([song, songPlayCount[song]]);
+    }
+    songSort.sort(function(a, b) {return a[1] - b[1];});
+    songSort.reverse();
+    $('#uniquesongs').text(songSort.length);
+    var songleaderboard = $('#songrank');
+    songleaderboard.text('');
+    for (var i = 0; i < 10 && i < songSort.length; i++){
+        songleaderboard.append('<li><em>'+songSort[i][1]+'</em> '+songSort[i][0]+'</li>');
+    }
+
+    // Top 10 Services
+    var serviceSort = [];
+    for (var service in servicePlayCount){
+        serviceSort.push([service, servicePlayCount[service]]);
+    }
+    serviceSort.sort(function(a, b) {return a[1] - b[1];});
+    serviceSort.reverse();
+    $('#uniqueservices').text(serviceSort.length);
+    var serviceleaderboard = $('#servicerank');
+    serviceleaderboard.text('');
+    for (var i = 0; i < 10 && i < serviceSort.length; i++){
+        serviceleaderboard.append('<li><em>'+serviceSort[i][1]+'</em> '+serviceSort[i][0]+'</li>');
+    }
+};
+
+// page through FB plays and populate the songs array and the songs UI recursively (sort of)
 var populatePlays= function(){
     FB.api('/me/music.listens?limit=25&offset='+ofs,function(response){
+        // catch FB API errors
         if(!response.error){
             if(response.data.length<1){
                 $('.media').unbind('click');
@@ -93,6 +188,7 @@ var populatePlays= function(){
             $('.media').click(mediaclick);
             doStats();
         }
+        // catch FB API errors
         else{
             console.log(response);
             return;
@@ -100,87 +196,35 @@ var populatePlays= function(){
     });
 };
 
-function compare(a,b) {
-    if (a.data.musician[0].name.toLowerCase() < b.data.musician[0].name.toLowerCase())
-        return -1;
-    if (a.data.musician[0].name.toLowerCase() > b.data.musician[0].name.toLowerCase())
-        return 1;
-    return 0;
-}
-
-var doStats = function(){
-    $('#totalplays').text(songs.length);
-    songs.sort(compare);
-    artistPlayCount = {};
-    songPlayCount = {};
-    for(var i = 0; i < songs.length; i++){
-        if(artistPlayCount[songs[i].data.musician[0].name]===null||artistPlayCount[songs[i].data.musician[0].name]===undefined){
-            artistPlayCount[songs[i].data.musician[0].name] = 0;
-        }
-        artistPlayCount[songs[i].data.musician[0].name]++;
-        if(songPlayCount[songs[i].title]===null||songPlayCount[songs[i].title]===undefined){
-            songPlayCount[songs[i].title] = 0;
-        }
-        songPlayCount[songs[i].title]++;
-    }
-    var songSort = []
-    var artistSort = [];
-    for (var artist in artistPlayCount)
-        artistSort.push([artist, artistPlayCount[artist]]);
-    artistSort.sort(function(a, b) {return a[1] - b[1]});
-    artistSort.reverse();
-    for (var song in songPlayCount)
-        songSort.push([song, songPlayCount[song]]);
-    songSort.sort(function(a, b) {return a[1] - b[1]});
-    songSort.reverse();
-    $('#uniqueartists').text(artistSort.length);
-    $('#uniquesongs').text(songSort.length);
-    var artistleaderboard = $('#artistrank');
-    var songleaderboard = $('#songrank');
-    artistleaderboard.text('');
-    songleaderboard.text('');
-    for (var i = 0; i < 10; i++){
-        artistleaderboard.append('<li><em>'+artistSort[i][1]+'</em> '+artistSort[i][0]+'</li>');
-        songleaderboard.append('<li><em>'+songSort[i][1]+'</em> '+songSort[i][0]+'</li>');
-    }
-}
-
-var loggedInToFacebook = function() {
-    populatePlays();
-};
-
 ////////////////////////
 //FACEBOOK LOGIN STUFF//
 ////////////////////////
 
 window.fbAsyncInit = function() {
-  // init the FB JS SDK
+    $( "#action" ).prop( "disabled", false );
     FB.init({
-        appId: '341862115846576',
-        // App ID from the App Dashboard
-        //channelUrl : '//WWW.YOUR_DOMAIN.COM/channel.html', // Channel File for x-domain communication
+        // To be honest, I don't give a shit who knows my development FB API key.
+        // It's not like you're going to bother use it.
+        appId: '134327086719273',
         status: true,
-        // check the login status upon init?
         cookie: true,
-        // set sessions cookies to allow your server to access the session?
-        xfbml: true // parse XFBML tags on this page?
+        xfbml: true
     });
 
     FB.getLoginStatus(function(response) {
         if(response.status === 'connected') {
             var uid = response.authResponse.userID;
             var accessToken = response.authResponse.accessToken;
+            loggedInToFacebook();
         } else if(response.status === 'not_authorized') {
-            // the user is logged in to Facebook, 
-            // but has not authenticated your app
+            alert('well fuck you too!');
         } else {
-            // the user isn't logged in to Facebook.
+            alert('no, log in, n00b...');
         }
     });
-    // Additional initialization code such as adding Event Listeners goes here
 };
 
-// Load the SDK's source Asynchronously
+// Load the FB SDK's source Asynchronously
 (function(d, debug) {
     var js, id = 'facebook-jssdk',
     ref = d.getElementsByTagName('script')[0];
@@ -190,6 +234,6 @@ window.fbAsyncInit = function() {
     js = d.createElement('script');
     js.id = id;
     js.async = true;
-    js.src = "http://connect.facebook.net/en_US/all" + (debug ? "/debug" : "") + ".js";
+    js.src = 'http://connect.facebook.net/en_US/all' + (debug ? '/debug' : '') + '.js';
     ref.parentNode.insertBefore(js, ref);
 }(document, /*debug*/ false));

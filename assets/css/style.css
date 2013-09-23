@@ -17,6 +17,14 @@ em{
 	height:64px;
 }
 
+.media:hover{
+	background-color: #CCC;
+}
+
 #heart{
 	color:pink;
+}
+
+.content{
+	display:none;
 }
