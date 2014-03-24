@@ -203,7 +203,7 @@ var populatePlays= function(){
 window.fbAsyncInit = function() {
     $( "#action" ).prop( "disabled", false );
     FB.init({
-        // To be honest, I don't give a shit who knows my development FB API key.
+        // To be honest, I don't care knows my development FB API key.
         // It's not like you're going to bother use it.
         appId: '134327086719273',
         status: true,
@@ -217,9 +217,9 @@ window.fbAsyncInit = function() {
             var accessToken = response.authResponse.accessToken;
             loggedInToFacebook();
         } else if(response.status === 'not_authorized') {
-            alert('well fuck you too!');
+            alert('ok then...!');
         } else {
-            alert('no, log in, n00b...');
+            alert('no, log in...');
         }
     });
 };
